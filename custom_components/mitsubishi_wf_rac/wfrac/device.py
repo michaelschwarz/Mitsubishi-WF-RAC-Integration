@@ -82,10 +82,20 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
                 self._set_availability(False)
                 _LOGGER.warning("Received no data for device %s", self._airco_id)
                 return
-        except Exception:  # pylint: disable=broad-except
+        except Exception as ex:  # pylint: disable=broad-except
             self._set_availability(False)
             _LOGGER.warning(
-                "Error: something went wrong updating the airco [%s] values", self.device_name
+                "Could not update airco [%s] status from %s:%s: %s: %s",
+                self.device_name,
+                self.host,
+                self.port,
+                type(ex).__name__,
+                ex,
+            )
+            _LOGGER.debug(
+                "Detailed exception while updating airco [%s]",
+                self.device_name,
+                exc_info=True,
             )
             return
 
@@ -96,7 +106,24 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             await self.async_refresh()
             self._set_availability(True)
         except Exception as e:  # pylint: disable=broad-except
-            _LOGGER.warning("Could not parse airco data", exc_info=e)
+            _LOGGER.warning(
+                "Could not parse airco [%s] status response from %s:%s: %s: %s",
+                self.device_name,
+                self.host,
+                self.port,
+                type(e).__name__,
+                e,
+            )
+            _LOGGER.debug(
+                "Airco [%s] response keys before parse failure: %s",
+                self.device_name,
+                list(response.keys()) if isinstance(response, dict) else type(response).__name__,
+            )
+            _LOGGER.debug(
+                "Detailed exception while parsing airco [%s] status response",
+                self.device_name,
+                exc_info=True,
+            )
             self._set_availability(False)
 
     async def delete_account(self):

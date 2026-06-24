@@ -104,8 +104,28 @@ class Repository:
                         ) as resp:
                             resp.raise_for_status()
                             return await resp.json()
+            except aiohttp.ClientResponseError as ex:
+                raise AirconApiError(
+                    f"{command} via {protocol.upper()} to "
+                    f"{self._hostname}:{self._port} failed with HTTP "
+                    f"{ex.status}: {ex.message}"
+                ) from ex
+            except aiohttp.ContentTypeError as ex:
+                raise AirconApiError(
+                    f"{command} via {protocol.upper()} to "
+                    f"{self._hostname}:{self._port} returned a non-JSON response"
+                ) from ex
+            except ValueError as ex:
+                raise AirconApiError(
+                    f"{command} via {protocol.upper()} to "
+                    f"{self._hostname}:{self._port} returned invalid JSON: {ex}"
+                ) from ex
             except (ClientConnectionError, asyncio.TimeoutError) as ex:
-                raise AirconApiError(f"Aircon returned error: {ex}") from ex
+                raise AirconApiError(
+                    f"{command} via {protocol.upper()} to "
+                    f"{self._hostname}:{self._port} failed: "
+                    f"{type(ex).__name__}: {ex}"
+                ) from ex
 
             raise AirconApiError(f"Invalid protocol specified: {protocol}")
 
