@@ -32,13 +32,21 @@
     }
   },
   "options": {
+    "error": {
+      "invalid_status_update_interval": "Status update interval must be a whole number of seconds.",
+      "status_update_interval_too_low": "Status update interval must be higher than the default update interval."
+    },
     "step": {
       "init": {
         "description": "Below are the options you can change for this airco.",
         "data": {
           "host": "[%key:common::config_flow::data::host%]",
           "availability_check": "[%key:common::config_flow::data::avaiability%]",
-          "availability_retry_limit": "[%key:common::config_flow::data::avaiability_retry_limit%]"
+          "availability_retry_limit": "[%key:common::config_flow::data::avaiability_retry_limit%]",
+          "status_update_interval": "Status update interval (seconds)"
+        },
+        "data_description": {
+          "status_update_interval": "Seconds between status updates. Leave blank to use the default interval; values must be higher than the default."
         },
         "title": "WF-RAC AC connection info"
       }

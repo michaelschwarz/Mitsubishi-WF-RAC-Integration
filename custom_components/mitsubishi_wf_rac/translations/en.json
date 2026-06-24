@@ -33,6 +33,10 @@
     }
   },
   "options": {
+    "error": {
+      "invalid_status_update_interval": "Status update interval must be a whole number of seconds.",
+      "status_update_interval_too_low": "Status update interval must be higher than the default update interval."
+    },
     "step": {
       "init": {
         "description": "Below are the options you can change for this airco.",
@@ -40,7 +44,11 @@
           "host": "Host (IP) address",
           "availability_check": "Check availability",
           "availability_retry_limit": "Retry limit",
+          "status_update_interval": "Status update interval (seconds)",
           "create_swing_mode_select": "Whether to create an additional swing mode selectors."
+        },
+        "data_description": {
+          "status_update_interval": "Seconds between status updates. Leave blank to use the default interval; values must be higher than the default."
         },
         "title": "WF-RAC AC connection info"
       }

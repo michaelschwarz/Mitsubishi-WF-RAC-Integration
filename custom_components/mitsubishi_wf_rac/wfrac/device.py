@@ -1,6 +1,6 @@
 """Device module"""
 import asyncio
-from datetime import timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 import logging
 
@@ -32,6 +32,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             airco_id: str,
             availability_retry: bool,
             availability_retry_limit: int,
+            status_update_interval: timedelta,
             create_swing_mode_select: bool,
     ) -> None:
         self._api = Repository(hass, hostname, port, operator_id, device_id)
@@ -52,18 +53,27 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._availability_retry = availability_retry
         self._availability_retry_count = 0
         self._availability_retry_limit = availability_retry_limit
+        self._status_update_interval = status_update_interval
+        self._last_status_update: datetime | None = None
         self._create_swing_mode_select = create_swing_mode_select
 
         super().__init__(
             hass,
             _LOGGER,
             name=name,
-            update_interval=timedelta(seconds=60),
+            update_interval=status_update_interval,
         )
 
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def update(self):
         """Update the device information from API"""
+        now = datetime.now(timezone.utc)
+        if (
+            self._last_status_update is not None
+            and now - self._last_status_update < self._status_update_interval
+        ):
+            return
+        self._last_status_update = now
 
         try:
             response = await self._api.get_aircon_stats()

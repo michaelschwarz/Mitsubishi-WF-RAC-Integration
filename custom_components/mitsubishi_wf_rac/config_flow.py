@@ -28,7 +28,9 @@ from .const import (
     CONF_AVAILABILITY_RETRY_LIMIT,
     CONF_CREATE_SWING_MODE_SELECT,
     CONF_OPERATOR_ID,
+    CONF_STATUS_UPDATE_INTERVAL,
     DOMAIN,
+    MIN_TIME_BETWEEN_UPDATES,
 )
 from .wfrac.repository import Repository
 
@@ -287,8 +289,36 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
             self, user_input: dict[str, Any] | None = None
     ):
         """Manage the options."""
+        errors = {}
+
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            status_update_interval = user_input.get(CONF_STATUS_UPDATE_INTERVAL)
+            if status_update_interval in (None, ""):
+                user_input.pop(CONF_STATUS_UPDATE_INTERVAL, None)
+            else:
+                try:
+                    status_update_interval = int(status_update_interval)
+                except ValueError:
+                    errors[CONF_STATUS_UPDATE_INTERVAL] = "invalid_status_update_interval"
+                else:
+                    min_update_interval = int(MIN_TIME_BETWEEN_UPDATES.total_seconds())
+                    if status_update_interval <= min_update_interval:
+                        errors[CONF_STATUS_UPDATE_INTERVAL] = "status_update_interval_too_low"
+                    else:
+                        user_input[CONF_STATUS_UPDATE_INTERVAL] = status_update_interval
+
+            if not errors:
+                return self.async_create_entry(title="", data=user_input)
+
+        status_update_interval_default = self.config_entry.options.get(  # type: ignore
+            CONF_STATUS_UPDATE_INTERVAL,
+            "",
+        )
+        if user_input is not None:
+            status_update_interval_default = user_input.get(
+                CONF_STATUS_UPDATE_INTERVAL,
+                status_update_interval_default,
+            )
 
         return self.async_show_form(
             step_id="init",
@@ -306,8 +336,13 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_AVAILABILITY_RETRY_LIMIT,
                         default=self.config_entry.options.get(CONF_AVAILABILITY_RETRY_LIMIT, 3),  # type: ignore
                     ): int,
+                    vol.Optional(
+                        CONF_STATUS_UPDATE_INTERVAL,
+                        default=str(status_update_interval_default),
+                    ): str,
                 },
             ),
+            errors=errors,
         )
 
 
