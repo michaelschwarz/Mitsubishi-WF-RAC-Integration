@@ -1,8 +1,6 @@
 """for Climate integration."""
 
 from __future__ import annotations
-import asyncio
-from datetime import timedelta
 import logging
 from typing import Any
 
@@ -38,7 +36,6 @@ from .const import (
 )
 
 _LOGGER = logging.getLogger(__name__)
-UPDATE_CONSOLIDATION_PERIOD = timedelta(milliseconds=500)
 
 
 async def async_setup_entry(hass, entry: MitsubishiWfRacConfigEntry, async_add_entities):
@@ -92,7 +89,6 @@ class AircoClimate(ClimateEntity):
         self._attr_name = device.device_name
         self._attr_device_info = device.device_info
         self._attr_unique_id = f"{DOMAIN}-{self._device.airco_id}-climate"
-        self._consolidated_params = {}
         self._update_state()
 
     async def async_set_temperature(self, **kwargs) -> None:
@@ -181,16 +177,6 @@ class AircoClimate(ClimateEntity):
         await self._set_airco({AirconCommands.Operation: False})
 
     async def _set_airco(self, params: dict[str, Any]) -> None:
-        will_do_update = not self._consolidated_params
-        self._consolidated_params.update(params)
-
-        if will_do_update:
-            self._hass.async_create_task(self._set_airco_after_delay())
-
-    async def _set_airco_after_delay(self):
-        await asyncio.sleep(UPDATE_CONSOLIDATION_PERIOD.total_seconds())
-        params = self._consolidated_params.copy()
-        self._consolidated_params.clear()
         await self._device.set_airco(params)
         self._update_state()
         self.async_write_ha_state()

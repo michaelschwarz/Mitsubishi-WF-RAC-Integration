@@ -87,6 +87,7 @@ class HorizontalSwingSelect(SelectEntity):
                 }
             )
         self.select_option(option)
+        self.async_write_ha_state()
 
     async def async_update(self):
         """Retrieve latest state."""
@@ -144,6 +145,7 @@ class VerticalSwingSelect(SelectEntity):
                 }
             )
         self.select_option(option)
+        self.async_write_ha_state()
 
     async def async_update(self):
         """Retrieve latest state."""
@@ -178,6 +180,7 @@ class FanSpeedSelect(SelectEntity):
             }
         )
         self.select_option(option)
+        self.async_write_ha_state()
 
     async def async_update(self):
         """Retrieve latest state."""

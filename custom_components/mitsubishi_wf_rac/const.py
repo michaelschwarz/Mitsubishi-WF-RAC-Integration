@@ -15,6 +15,7 @@ DOMAIN = "mitsubishi_wf_rac"
 DEVICES = "wf-rac-devices"
 
 MIN_TIME_BETWEEN_UPDATES=timedelta(seconds=60)
+CONTROL_DEBOUNCE_PERIOD = timedelta(milliseconds=2500)
 
 CONF_OPERATOR_ID = "operator_id"
 CONF_AIRCO_ID = "airco_id"

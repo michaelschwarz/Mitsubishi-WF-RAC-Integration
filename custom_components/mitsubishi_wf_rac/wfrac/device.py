@@ -14,7 +14,7 @@ from .rac_parser import RacParser
 from .repository import Repository
 from .models.aircon import Aircon, AirconStat
 
-from ..const import DOMAIN, MIN_TIME_BETWEEN_UPDATES
+from ..const import CONTROL_DEBOUNCE_PERIOD, DOMAIN, MIN_TIME_BETWEEN_UPDATES
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -63,6 +63,9 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._availability_retry_limit = availability_retry_limit
         self._status_update_interval = status_update_interval
         self._last_status_update: datetime | None = None
+        self._pending_airco_params: dict[str, Any] = {}
+        self._set_airco_task: asyncio.Task | None = None
+        self._airco_command_version = 0
         self._create_swing_mode_select = create_swing_mode_select
 
         super().__init__(
@@ -151,27 +154,66 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             _LOGGER.warning("Could not add account from airco %s", self._airco_id)
 
     async def set_airco(self, params: dict[str, Any]) -> None:
-        """Method to send airco command"""
-        _LOGGER.debug("Setting airco: %s", params)
+        """Optimistically update and debounce sending an airco command."""
+        _LOGGER.debug("Queueing airco update: %s", params)
         if self.airco is None:
             await self._hass.async_add_executor_job(self.update)
 
         if self._airco is None:
             raise ValueError("Airco object is empty")
 
-        airco_stat = AirconStat(self._airco)
+        self._pending_airco_params.update(params)
+        self._airco_command_version += 1
+        self._apply_airco_params(params)
+        self.async_set_updated_data(self._airco)
 
+        if self._set_airco_task is not None and not self._set_airco_task.done():
+            self._set_airco_task.cancel()
+
+        self._set_airco_task = self._hass.async_create_task(
+            self._debounced_send_airco()
+        )
+
+    def _apply_airco_params(self, params: dict[str, Any]) -> None:
+        """Apply pending command values to the local optimistic state."""
         for key, value in params.items():
-            setattr(airco_stat, key, value)
+            setattr(self._airco, key, value)
+
+    async def _debounced_send_airco(self) -> None:
+        """Send the latest queued command after the debounce period."""
+        try:
+            await asyncio.sleep(CONTROL_DEBOUNCE_PERIOD.total_seconds())
+        except asyncio.CancelledError:
+            return
+
+        params = self._pending_airco_params.copy()
+        self._pending_airco_params.clear()
+        self._set_airco_task = None
+        command_version = self._airco_command_version
+
+        if not params:
+            return
+
+        await self._send_airco(params, command_version)
+
+    async def _send_airco(self, params: dict[str, Any], command_version: int) -> None:
+        """Send airco command values to the device."""
+        _LOGGER.debug("Sending debounced airco update: %s", params)
+        airco_stat = AirconStat(self._airco)
 
         try:
             command = self._parser.to_base64(airco_stat)
             response = await self._api.send_airco_command(self._airco_id, command)
-            self._airco = self._parser.translate_bytes(response)
-            await self.async_refresh()
+            if command_version == self._airco_command_version:
+                self._airco = self._parser.translate_bytes(response)
+                self.async_set_updated_data(self._airco)
+            else:
+                _LOGGER.debug(
+                    "Ignoring stale airco response for [%s]; newer command is pending",
+                    self.device_name,
+                )
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.warning("Could not send airco data: %s", str(e))
-            raise
 
     def _set_availability(self, available: bool):
         """Set availability after retry count"""
