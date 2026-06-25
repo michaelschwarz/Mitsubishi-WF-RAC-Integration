@@ -20,6 +20,7 @@ from .const import (
     CONF_AVAILABILITY_CHECK,
     CONF_AVAILABILITY_RETRY_LIMIT,
     CONF_CREATE_SWING_MODE_SELECT,
+    CONF_LOG_HTTP_CALLS,
     CONF_OPERATOR_ID,
     CONF_STATUS_UPDATE_INTERVAL,
     DOMAIN,
@@ -105,6 +106,7 @@ async def create_device_from_entry(entry, hass):
         seconds=int(status_update_interval_seconds)
     )
     create_swing_mode_select: bool = entry.data.get(CONF_CREATE_SWING_MODE_SELECT, True)
+    log_http_calls: bool = entry.options.get(CONF_LOG_HTTP_CALLS, False)
     _device = Device(
         hass,
         name,
@@ -117,6 +119,7 @@ async def create_device_from_entry(entry, hass):
         availability_retry_limit,
         status_update_interval,
         create_swing_mode_select,
+        log_http_calls,
     )
     return _device
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import json
 import logging
 import os
 import ssl
@@ -45,6 +46,7 @@ class Repository:
         port: int,
         operator_id: str,
         device_id: str,
+        log_http_calls: bool = False,
     ) -> None:
         self._hass = hass
         self._hostname = hostname
@@ -54,6 +56,76 @@ class Repository:
         self._session = async_get_clientsession(hass)
         self._next_request_after = datetime.now()
         self._method: str | None = None
+        self._log_http_calls = log_http_calls
+
+    def _log_http_request(self, url: str, data: dict[str, Any]) -> None:
+        """Log outgoing HTTP call details when enabled for this device."""
+        if not self._log_http_calls:
+            return
+
+        _HTTP_LOG.info(
+            "WF-RAC HTTP request: url=%s payload=%s",
+            url,
+            data,
+        )
+
+    def _log_http_response(
+        self,
+        url: str,
+        status: int,
+        content_type: str | None,
+        body: str,
+    ) -> None:
+        """Log incoming HTTP response details when enabled for this device."""
+        if not self._log_http_calls:
+            return
+
+        _HTTP_LOG.info(
+            "WF-RAC HTTP response: url=%s status=%s content_type=%s body=%s",
+            url,
+            status,
+            content_type,
+            body,
+        )
+
+    def _log_http_failure(self, url: str, ex: Exception) -> None:
+        """Log HTTP transport failures when enabled for this device."""
+        if not self._log_http_calls:
+            return
+
+        _HTTP_LOG.info(
+            "WF-RAC HTTP failure: url=%s error=%s: %s",
+            url,
+            type(ex).__name__,
+            ex,
+        )
+
+    async def _handle_response(
+        self,
+        command: str,
+        protocol: str,
+        url: str,
+        resp: aiohttp.ClientResponse,
+    ) -> dict[str, Any]:
+        """Read, log, validate, and parse an API response."""
+        body = await resp.text()
+        self._log_http_response(url, resp.status, resp.content_type, body)
+
+        if resp.status >= 400:
+            raise AirconApiError(
+                f"{command} via {protocol.upper()} to "
+                f"{self._hostname}:{self._port} failed with HTTP "
+                f"{resp.status}: {resp.reason}; body={body}"
+            )
+
+        try:
+            return json.loads(body)
+        except ValueError as ex:
+            raise AirconApiError(
+                f"{command} via {protocol.upper()} to "
+                f"{self._hostname}:{self._port} returned invalid JSON: {ex}; "
+                f"body={body}"
+            ) from ex
 
     async def _post(
         self, command: str, contents: dict[str, Any] | None = None
@@ -61,13 +133,18 @@ class Repository:
         async def _execute_request(protocol: str) -> dict[str, Any]:
             """Executes a single POST request and returns the JSON response."""
             url = f"{protocol}://{self._hostname}:{self._port}/beaver/command/{command}"
+            self._log_http_request(url, data)
             try:
                 if protocol == "http":
                     async with self._session.post(
                         url, json=data, timeout=aiohttp.ClientTimeout(total=30)
                     ) as resp:
-                        resp.raise_for_status()
-                        return await resp.json()
+                        return await self._handle_response(
+                            command,
+                            protocol,
+                            url,
+                            resp,
+                        )
                 elif protocol == "https":
                     # TODO: add this logic to the config flow and try to fetch HTTPS cert automaticly
                     # If a certificate file is present, use it for SSL, otherwise bypass
@@ -102,25 +179,21 @@ class Repository:
                         async with https_session.post(
                             url, json=data, timeout=aiohttp.ClientTimeout(total=30)
                         ) as resp:
-                            resp.raise_for_status()
-                            return await resp.json()
-            except aiohttp.ClientResponseError as ex:
-                raise AirconApiError(
-                    f"{command} via {protocol.upper()} to "
-                    f"{self._hostname}:{self._port} failed with HTTP "
-                    f"{ex.status}: {ex.message}"
-                ) from ex
-            except aiohttp.ContentTypeError as ex:
-                raise AirconApiError(
-                    f"{command} via {protocol.upper()} to "
-                    f"{self._hostname}:{self._port} returned a non-JSON response"
-                ) from ex
-            except ValueError as ex:
-                raise AirconApiError(
-                    f"{command} via {protocol.upper()} to "
-                    f"{self._hostname}:{self._port} returned invalid JSON: {ex}"
-                ) from ex
+                            return await self._handle_response(
+                                command,
+                                protocol,
+                                url,
+                                resp,
+                            )
             except (ClientConnectionError, asyncio.TimeoutError) as ex:
+                self._log_http_failure(url, ex)
+                raise AirconApiError(
+                    f"{command} via {protocol.upper()} to "
+                    f"{self._hostname}:{self._port} failed: "
+                    f"{type(ex).__name__}: {ex}"
+                ) from ex
+            except aiohttp.ClientError as ex:
+                self._log_http_failure(url, ex)
                 raise AirconApiError(
                     f"{command} via {protocol.upper()} to "
                     f"{self._hostname}:{self._port} failed: "
@@ -167,12 +240,6 @@ class Repository:
                 self._method = "https"
 
         self._next_request_after = datetime.now() + _MIN_TIME_BETWEEN_REQUESTS
-
-        _HTTP_LOG.debug(
-            "Got response from %r: %r",
-            self._hostname,
-            json_response,
-        )
         return json_response
 
     async def get_info(self) -> dict:

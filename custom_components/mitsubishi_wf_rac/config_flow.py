@@ -27,6 +27,7 @@ from .const import (
     CONF_AVAILABILITY_CHECK,
     CONF_AVAILABILITY_RETRY_LIMIT,
     CONF_CREATE_SWING_MODE_SELECT,
+    CONF_LOG_HTTP_CALLS,
     CONF_OPERATOR_ID,
     CONF_STATUS_UPDATE_INTERVAL,
     DOMAIN,
@@ -340,6 +341,10 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_STATUS_UPDATE_INTERVAL,
                         default=str(status_update_interval_default),
                     ): str,
+                    vol.Optional(
+                        CONF_LOG_HTTP_CALLS,
+                        default=self.config_entry.options.get(CONF_LOG_HTTP_CALLS, False),  # type: ignore
+                    ): bool,
                 },
             ),
             errors=errors,

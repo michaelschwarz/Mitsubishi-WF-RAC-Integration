@@ -34,8 +34,16 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             availability_retry_limit: int,
             status_update_interval: timedelta,
             create_swing_mode_select: bool,
+            log_http_calls: bool,
     ) -> None:
-        self._api = Repository(hass, hostname, port, operator_id, device_id)
+        self._api = Repository(
+            hass,
+            hostname,
+            port,
+            operator_id,
+            device_id,
+            log_http_calls,
+        )
         self._parser = RacParser()
         self._hass = hass
 

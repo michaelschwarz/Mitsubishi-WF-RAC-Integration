@@ -43,10 +43,12 @@
           "host": "[%key:common::config_flow::data::host%]",
           "availability_check": "[%key:common::config_flow::data::avaiability%]",
           "availability_retry_limit": "[%key:common::config_flow::data::avaiability_retry_limit%]",
-          "status_update_interval": "Status update interval (seconds)"
+          "status_update_interval": "Status update interval (seconds)",
+          "log_http_calls": "Log HTTP calls"
         },
         "data_description": {
-          "status_update_interval": "Seconds between status updates. Leave blank to use the default interval; values must be higher than the default."
+          "status_update_interval": "Seconds between status updates. Leave blank to use the default interval; values must be higher than the default.",
+          "log_http_calls": "Log every request and response for this device, including payload details. Disable this after troubleshooting."
         },
         "title": "WF-RAC AC connection info"
       }
