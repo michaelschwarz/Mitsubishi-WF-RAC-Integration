@@ -14,7 +14,12 @@ from .rac_parser import RacParser
 from .repository import Repository
 from .models.aircon import Aircon, AirconStat
 
-from ..const import CONTROL_DEBOUNCE_PERIOD, DOMAIN, MIN_TIME_BETWEEN_UPDATES
+from ..const import (
+    CONTROL_DEBOUNCE_PERIOD,
+    CONTROL_STATUS_REFRESH_DELAY,
+    DOMAIN,
+    MIN_TIME_BETWEEN_UPDATES,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -65,7 +70,9 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._last_status_update: datetime | None = None
         self._pending_airco_params: dict[str, Any] = {}
         self._set_airco_task: asyncio.Task | None = None
+        self._status_refresh_task: asyncio.Task | None = None
         self._airco_command_version = 0
+        self._airco_command_in_flight = False
         self._create_swing_mode_select = create_swing_mode_select
 
         super().__init__(
@@ -78,8 +85,30 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
     @Throttle(MIN_TIME_BETWEEN_UPDATES)
     async def update(self):
         """Update the device information from API"""
+        await self._update_status_from_api()
+
+    def _has_pending_airco_command(self) -> bool:
+        """Return true while an optimistic command is pending or being sent."""
+        return (
+            bool(self._pending_airco_params)
+            or (
+                self._set_airco_task is not None
+                and not self._set_airco_task.done()
+            )
+            or self._airco_command_in_flight
+        )
+
+    async def _update_status_from_api(self, force: bool = False) -> None:
+        """Update the device information from API."""
+        if not force and self._has_pending_airco_command():
+            _LOGGER.debug(
+                "Skipping status update for [%s]; airco command is pending",
+                self.device_name,
+            )
+            return
+
         now = datetime.now(timezone.utc)
-        if (
+        if not force and (
             self._last_status_update is not None
             and now - self._last_status_update < self._status_update_interval
         ):
@@ -114,7 +143,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             self._connected_accounts = int(response["numOfAccount"])
             self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
             self._airco = self._parser.translate_bytes(response["airconStat"])
-            await self.async_refresh()
+            self.async_set_updated_data(self._airco)
             self._set_availability(True)
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.warning(
@@ -167,6 +196,12 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._apply_airco_params(params)
         self.async_set_updated_data(self._airco)
 
+        if (
+            self._status_refresh_task is not None
+            and not self._status_refresh_task.done()
+        ):
+            self._status_refresh_task.cancel()
+
         if self._set_airco_task is not None and not self._set_airco_task.done():
             self._set_airco_task.cancel()
 
@@ -202,6 +237,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         airco_stat = AirconStat(self._airco)
 
         try:
+            self._airco_command_in_flight = True
             command = self._parser.to_base64(airco_stat)
             response = await self._api.send_airco_command(self._airco_id, command)
             if command_version == self._airco_command_version:
@@ -214,6 +250,42 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
                 )
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.warning("Could not send airco data: %s", str(e))
+        finally:
+            self._airco_command_in_flight = False
+            self._schedule_status_refresh_after_control_delay()
+
+    def _schedule_status_refresh_after_control_delay(self) -> None:
+        """Schedule a status refresh after allowing the device to settle."""
+        if (
+            self._status_refresh_task is not None
+            and not self._status_refresh_task.done()
+        ):
+            self._status_refresh_task.cancel()
+
+        self._status_refresh_task = self._hass.async_create_task(
+            self._refresh_status_after_control_delay()
+        )
+
+    async def _refresh_status_after_control_delay(self) -> None:
+        """Refresh status after a command has had time to settle on the device."""
+        try:
+            await asyncio.sleep(CONTROL_STATUS_REFRESH_DELAY.total_seconds())
+        except asyncio.CancelledError:
+            return
+
+        self._status_refresh_task = None
+        if self._has_pending_airco_command():
+            _LOGGER.debug(
+                "Skipping delayed status refresh for [%s]; newer command is pending",
+                self.device_name,
+            )
+            return
+
+        _LOGGER.debug(
+            "Refreshing status for [%s] after control command settle delay",
+            self.device_name,
+        )
+        await self._update_status_from_api(force=True)
 
     def _set_availability(self, available: bool):
         """Set availability after retry count"""
