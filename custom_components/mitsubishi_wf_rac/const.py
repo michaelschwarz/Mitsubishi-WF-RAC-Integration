@@ -17,6 +17,7 @@ DEVICES = "wf-rac-devices"
 MIN_TIME_BETWEEN_UPDATES=timedelta(seconds=60)
 CONTROL_DEBOUNCE_PERIOD = timedelta(seconds=5)
 CONTROL_STATUS_REFRESH_DELAY = timedelta(seconds=10)
+DEFAULT_AVAILABILITY_RETRY_LIMIT = 5
 
 CONF_OPERATOR_ID = "operator_id"
 CONF_AIRCO_ID = "airco_id"

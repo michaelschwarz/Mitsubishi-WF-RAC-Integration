@@ -49,6 +49,7 @@
           "create_swing_mode_select": "Whether to create an additional swing mode selectors."
         },
         "data_description": {
+          "availability_retry_limit": "Number of consecutive failed status requests to ignore before marking the device unavailable.",
           "status_update_interval": "Seconds between status updates. Leave blank to use the default interval; values must be higher than the default.",
           "log_http_calls": "Log every request and response for this device, including payload details. Disable this after troubleshooting."
         },

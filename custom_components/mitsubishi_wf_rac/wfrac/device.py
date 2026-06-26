@@ -35,7 +35,6 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             device_id: str,
             operator_id: str,
             airco_id: str,
-            availability_retry: bool,
             availability_retry_limit: int,
             status_update_interval: timedelta,
             create_swing_mode_select: bool,
@@ -63,8 +62,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._name = name
         self._firmware = ""
         self._connected_accounts = -1
-        self._availability_retry = availability_retry
-        self._availability_retry_count = 0
+        self._availability_error_count = 0
         self._availability_retry_limit = availability_retry_limit
         self._status_update_interval = status_update_interval
         self._last_status_update: datetime | None = None
@@ -119,11 +117,13 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             response = await self._api.get_aircon_stats()
 
             if response is None:
-                self._set_availability(False)
+                self._record_availability_failure("status response was empty")
                 _LOGGER.warning("Received no data for device %s", self._airco_id)
                 return
         except Exception as ex:  # pylint: disable=broad-except
-            self._set_availability(False)
+            self._record_availability_failure(
+                f"{type(ex).__name__}: {ex}"
+            )
             _LOGGER.warning(
                 "Could not update airco [%s] status from %s:%s: %s: %s",
                 self.device_name,
@@ -143,8 +143,8 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             self._connected_accounts = int(response["numOfAccount"])
             self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
             self._airco = self._parser.translate_bytes(response["airconStat"])
+            self._mark_device_access_successful()
             self.async_set_updated_data(self._airco)
-            self._set_availability(True)
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.warning(
                 "Could not parse airco [%s] status response from %s:%s: %s: %s",
@@ -164,21 +164,27 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
                 self.device_name,
                 exc_info=True,
             )
-            self._set_availability(False)
+            self._record_availability_failure(
+                f"status response parse failed: {type(e).__name__}: {e}"
+            )
 
     async def delete_account(self):
         """Delete account (operator id) from the airco"""
         try:
-            return await self._api.del_account_info(self._airco_id)
+            result = await self._api.del_account_info(self._airco_id)
+            self._mark_device_access_successful()
+            return result
         except Exception:  # pylint: disable=broad-except
             _LOGGER.warning("Could not delete account from airco %s", self._airco_id)
 
     async def add_account(self):
         """Add account (operator id) from the airco"""
         try:
-            return await self._api.update_account_info(
+            result = await self._api.update_account_info(
                 self._airco_id, self._hass.config.time_zone
             )
+            self._mark_device_access_successful()
+            return result
         except Exception:  # pylint: disable=broad-except
             _LOGGER.warning("Could not add account from airco %s", self._airco_id)
 
@@ -240,6 +246,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             self._airco_command_in_flight = True
             command = self._parser.to_base64(airco_stat)
             response = await self._api.send_airco_command(self._airco_id, command)
+            self._mark_device_access_successful()
             if command_version == self._airco_command_version:
                 self._airco = self._parser.translate_bytes(response)
                 self.async_set_updated_data(self._airco)
@@ -249,7 +256,19 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
                     self.device_name,
                 )
         except Exception as e:  # pylint: disable=broad-except
-            _LOGGER.warning("Could not send airco data: %s", str(e))
+            _LOGGER.warning(
+                "Could not send airco command to [%s] at %s:%s: %s: %s",
+                self.device_name,
+                self.host,
+                self.port,
+                type(e).__name__,
+                e,
+            )
+            _LOGGER.debug(
+                "Airco command failure for [%s] does not increment the status failure counter",
+                self.device_name,
+                exc_info=True,
+            )
         finally:
             self._airco_command_in_flight = False
             self._schedule_status_refresh_after_control_delay()
@@ -287,25 +306,45 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         )
         await self._update_status_from_api(force=True)
 
-    def _set_availability(self, available: bool):
-        """Set availability after retry count"""
-        if available:
-            self._availability_retry_count = 0
-            self._available = True
+    def _mark_device_access_successful(self) -> None:
+        """Reset availability failures after successful device communication."""
+        if self._availability_error_count:
+            _LOGGER.debug(
+                "Reset availability failure counter for [%s] after successful device access; previous count was %s",
+                self.device_name,
+                self._availability_error_count,
+            )
+        self._availability_error_count = 0
+        self._available = True
+
+    def _record_availability_failure(self, reason: str) -> None:
+        """Record a failed status update without marking unavailable too early."""
+        self._availability_error_count += 1
+        if self._availability_error_count <= self._availability_retry_limit:
+            _LOGGER.debug(
+                "Ignoring failed status request for [%s] because availability failure count %s/%s has not exceeded the retry limit; reason: %s",
+                self.device_name,
+                self._availability_error_count,
+                self._availability_retry_limit,
+                reason,
+            )
             return
 
-        if not self._availability_retry:
-            self._available = False
-            return
-
-        self._availability_retry_count += 1
-        if self._availability_retry_count >= self._availability_retry_limit:
-            self._availability_retry_count = 0
-            self._available = False
+        _LOGGER.debug(
+            "Marking [%s] unavailable after %s consecutive availability failures; retry limit is %s; reason: %s",
+            self.device_name,
+            self._availability_error_count,
+            self._availability_retry_limit,
+            reason,
+        )
+        self._available = False
 
     def set_available(self, available: bool):
         """Set available status"""
-        self._set_availability(available)
+        if available:
+            self._mark_device_access_successful()
+        else:
+            self._available = False
 
     @property
     def device_info(self) -> DeviceInfo:
