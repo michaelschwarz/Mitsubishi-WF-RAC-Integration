@@ -22,8 +22,9 @@ from .const import (
     CONF_CREATE_SWING_MODE_SELECT,
     CONF_LOG_HTTP_CALLS,
     CONF_OPERATOR_ID,
+    CONF_STATUS_FAILURE_RETRY_LIMIT,
     CONF_STATUS_UPDATE_INTERVAL,
-    DEFAULT_AVAILABILITY_RETRY_LIMIT,
+    DEFAULT_STATUS_FAILURE_RETRY_LIMIT,
     DOMAIN,
     MIN_TIME_BETWEEN_UPDATES,
 )
@@ -51,7 +52,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         new_options = {
             CONF_HOST: new_data.pop(CONF_HOST),
             CONF_AVAILABILITY_CHECK: False,
-            CONF_AVAILABILITY_RETRY_LIMIT: DEFAULT_AVAILABILITY_RETRY_LIMIT,
+            CONF_AVAILABILITY_RETRY_LIMIT: 3,
         }
 
         hass.config_entries.async_update_entry(
@@ -60,8 +61,8 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.version == 2:
         new_data = entry.data.copy()
         new_options = entry.options.copy()
-        new_options["availability_retry"] = True
-        new_options["availability_retry_limit"] = DEFAULT_AVAILABILITY_RETRY_LIMIT
+        new_options["availability_retry"] = False
+        new_options["availability_retry_limit"] = 3
 
         hass.config_entries.async_update_entry(
             entry, data=new_data, options=new_options, version=3
@@ -98,9 +99,9 @@ async def create_device_from_entry(entry, hass):
     operator_id: str = entry.data[CONF_OPERATOR_ID]
     port: int = entry.data[CONF_PORT]
     airco_id: str = entry.data[CONF_AIRCO_ID]
-    availability_retry_limit: int = entry.options.get(
-        CONF_AVAILABILITY_RETRY_LIMIT,
-        DEFAULT_AVAILABILITY_RETRY_LIMIT,
+    status_failure_retry_limit: int = entry.options.get(
+        CONF_STATUS_FAILURE_RETRY_LIMIT,
+        DEFAULT_STATUS_FAILURE_RETRY_LIMIT,
     )
     status_update_interval_seconds = entry.options.get(CONF_STATUS_UPDATE_INTERVAL)
     if status_update_interval_seconds in (None, ""):
@@ -118,7 +119,7 @@ async def create_device_from_entry(entry, hass):
         device_id,
         operator_id,
         airco_id,
-        availability_retry_limit,
+        status_failure_retry_limit,
         status_update_interval,
         create_swing_mode_select,
         log_http_calls,

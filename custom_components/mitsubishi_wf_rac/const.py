@@ -17,12 +17,13 @@ DEVICES = "wf-rac-devices"
 MIN_TIME_BETWEEN_UPDATES=timedelta(seconds=60)
 CONTROL_DEBOUNCE_PERIOD = timedelta(seconds=5)
 CONTROL_STATUS_REFRESH_DELAY = timedelta(seconds=10)
-DEFAULT_AVAILABILITY_RETRY_LIMIT = 5
+DEFAULT_STATUS_FAILURE_RETRY_LIMIT = 5
 
 CONF_OPERATOR_ID = "operator_id"
 CONF_AIRCO_ID = "airco_id"
 CONF_AVAILABILITY_CHECK = "availability_check"
 CONF_AVAILABILITY_RETRY_LIMIT = "availability_retry_limit"
+CONF_STATUS_FAILURE_RETRY_LIMIT = "status_failure_retry_limit"
 CONF_STATUS_UPDATE_INTERVAL = "status_update_interval"
 CONF_LOG_HTTP_CALLS = "log_http_calls"
 CONF_CREATE_SWING_MODE_SELECT = "create_swing_mode_select"

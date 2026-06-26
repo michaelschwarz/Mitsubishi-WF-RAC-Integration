@@ -38,7 +38,11 @@
         "data": {
           "host": "Host (IP) Adresse",
           "availability_check": "Verfügbarkeit prüfen",
-          "availability_retry_limit": "max. Anzahl Wiederholungen"
+          "availability_retry_limit": "max. Anzahl Wiederholungen",
+          "status_failure_retry_limit": "Statusfehler-Wiederholungslimit"
+        },
+        "data_description": {
+          "status_failure_retry_limit": "Anzahl aufeinanderfolgender fehlgeschlagener Statusabfragen, die ignoriert werden, bevor das Gerät als nicht verfügbar markiert wird."
         },
         "title": "WF-RAC AC Verbindungs-Info"
       }

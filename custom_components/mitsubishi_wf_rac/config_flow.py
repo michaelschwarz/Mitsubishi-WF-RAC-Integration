@@ -29,8 +29,9 @@ from .const import (
     CONF_CREATE_SWING_MODE_SELECT,
     CONF_LOG_HTTP_CALLS,
     CONF_OPERATOR_ID,
+    CONF_STATUS_FAILURE_RETRY_LIMIT,
     CONF_STATUS_UPDATE_INTERVAL,
-    DEFAULT_AVAILABILITY_RETRY_LIMIT,
+    DEFAULT_STATUS_FAILURE_RETRY_LIMIT,
     DOMAIN,
     MIN_TIME_BETWEEN_UPDATES,
 )
@@ -154,7 +155,8 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 options_input = {
                     CONF_HOST: user_input[CONF_HOST],
                     CONF_AVAILABILITY_CHECK: True,
-                    CONF_AVAILABILITY_RETRY_LIMIT: DEFAULT_AVAILABILITY_RETRY_LIMIT,
+                    CONF_AVAILABILITY_RETRY_LIMIT: 3,
+                    CONF_STATUS_FAILURE_RETRY_LIMIT: DEFAULT_STATUS_FAILURE_RETRY_LIMIT,
                 }
                 data_input.pop(CONF_HOST)
 
@@ -340,9 +342,13 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
                     ): bool,
                     vol.Optional(
                         CONF_AVAILABILITY_RETRY_LIMIT,
+                        default=self.config_entry.options.get(CONF_AVAILABILITY_RETRY_LIMIT, 3),  # type: ignore
+                    ): int,
+                    vol.Optional(
+                        CONF_STATUS_FAILURE_RETRY_LIMIT,
                         default=self.config_entry.options.get(  # type: ignore
-                            CONF_AVAILABILITY_RETRY_LIMIT,
-                            DEFAULT_AVAILABILITY_RETRY_LIMIT,
+                            CONF_STATUS_FAILURE_RETRY_LIMIT,
+                            DEFAULT_STATUS_FAILURE_RETRY_LIMIT,
                         ),
                     ): int,
                     vol.Optional(
