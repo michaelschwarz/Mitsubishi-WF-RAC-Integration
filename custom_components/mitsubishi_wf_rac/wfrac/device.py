@@ -143,7 +143,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             self._connected_accounts = int(response["numOfAccount"])
             self._firmware = f'{response["firmType"]}, mcu: {response["mcu"]["firmVer"]}, wireless: {response["wireless"]["firmVer"]}'
             self._airco = self._parser.translate_bytes(response["airconStat"])
-            self._mark_device_access_successful()
+            self._mark_device_access_successful("status request succeeded")
             self.async_set_updated_data(self._airco)
         except Exception as e:  # pylint: disable=broad-except
             _LOGGER.warning(
@@ -172,7 +172,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         """Delete account (operator id) from the airco"""
         try:
             result = await self._api.del_account_info(self._airco_id)
-            self._mark_device_access_successful()
+            self._mark_device_access_successful("delete account request succeeded")
             return result
         except Exception:  # pylint: disable=broad-except
             _LOGGER.warning("Could not delete account from airco %s", self._airco_id)
@@ -183,7 +183,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             result = await self._api.update_account_info(
                 self._airco_id, self._hass.config.time_zone
             )
-            self._mark_device_access_successful()
+            self._mark_device_access_successful("add account request succeeded")
             return result
         except Exception:  # pylint: disable=broad-except
             _LOGGER.warning("Could not add account from airco %s", self._airco_id)
@@ -246,7 +246,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             self._airco_command_in_flight = True
             command = self._parser.to_base64(airco_stat)
             response = await self._api.send_airco_command(self._airco_id, command)
-            self._mark_device_access_successful()
+            self._mark_device_access_successful("airco command request succeeded")
             if command_version == self._airco_command_version:
                 self._airco = self._parser.translate_bytes(response)
                 self.async_set_updated_data(self._airco)
@@ -306,13 +306,14 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         )
         await self._update_status_from_api(force=True)
 
-    def _mark_device_access_successful(self) -> None:
+    def _mark_device_access_successful(self, reason: str) -> None:
         """Reset availability failures after successful device communication."""
         if self._availability_error_count:
             _LOGGER.debug(
-                "Reset availability failure counter for [%s] after successful device access; previous count was %s",
+                "Reset status failure counter for [%s] after successful device access; previous count was %s; reason: %s",
                 self.device_name,
                 self._availability_error_count,
+                reason,
             )
         self._availability_error_count = 0
         self._available = True
@@ -322,7 +323,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
         self._availability_error_count += 1
         if self._availability_error_count <= self._availability_retry_limit:
             _LOGGER.debug(
-                "Ignoring failed status request for [%s] because availability failure count %s/%s has not exceeded the retry limit; reason: %s",
+                "Tolerating failed status request for [%s]; consecutive status failure count is %s/%s and the device remains available; reason: %s",
                 self.device_name,
                 self._availability_error_count,
                 self._availability_retry_limit,
@@ -331,7 +332,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
             return
 
         _LOGGER.debug(
-            "Marking [%s] unavailable after %s consecutive availability failures; retry limit is %s; reason: %s",
+            "Marking [%s] unavailable after %s consecutive status request failures; configured limit is %s; reason: %s",
             self.device_name,
             self._availability_error_count,
             self._availability_retry_limit,
@@ -342,7 +343,7 @@ class Device(DataUpdateCoordinator):  # pylint: disable=too-many-instance-attrib
     def set_available(self, available: bool):
         """Set available status"""
         if available:
-            self._mark_device_access_successful()
+            self._mark_device_access_successful("availability set externally")
         else:
             self._available = False
 
