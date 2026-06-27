@@ -32,13 +32,26 @@
     }
   },
   "options": {
+    "error": {
+      "invalid_retry_limit": "De herhaallimiet moet een geheel getal zijn.",
+      "invalid_status_update_interval": "Het interval voor statusupdates moet een geheel aantal seconden zijn.",
+      "status_update_interval_too_low": "Het interval voor statusupdates moet langer zijn dan het standaardinterval."
+    },
     "step": {
       "init": {
         "description": "Hieronder zijn instellingen die je kan aanpassen voor deze airco.",
         "data": {
           "host": "Host (IP) address",
           "availability_check": "Controleer beschikbaarheid",
-          "availability_retry_limit": "Herhaal limiet"
+          "availability_retry_limit": "Herhaallimiet",
+          "status_failure_retry_limit": "Herhaallimiet voor statusfouten",
+          "status_update_interval": "Interval voor statusupdates (seconden)",
+          "log_http_calls": "HTTP-aanroepen loggen"
+        },
+        "data_description": {
+          "status_failure_retry_limit": "Aantal opeenvolgende mislukte statusaanvragen dat wordt genegeerd voordat het apparaat als niet beschikbaar wordt gemarkeerd.",
+          "status_update_interval": "Aantal seconden tussen statusupdates. Laat leeg om het standaardinterval te gebruiken; de waarde moet hoger zijn dan de standaardwaarde.",
+          "log_http_calls": "Log elke aanvraag en elk antwoord voor dit apparaat, inclusief details van de payload. Schakel dit na het oplossen van problemen weer uit."
         },
         "title": "WF-RAC AC connectie info"
       }

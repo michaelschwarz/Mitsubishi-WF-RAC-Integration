@@ -31,7 +31,6 @@ from .const import (
     CONF_OPERATOR_ID,
     CONF_STATUS_FAILURE_RETRY_LIMIT,
     CONF_STATUS_UPDATE_INTERVAL,
-    DEFAULT_STATUS_FAILURE_RETRY_LIMIT,
     DOMAIN,
     MIN_TIME_BETWEEN_UPDATES,
 )
@@ -43,7 +42,7 @@ _LOGGER = logging.getLogger(__name__)
 class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow."""
 
-    VERSION = 3
+    VERSION = 4
     CONNECTION_CLASS = config_entries.CONN_CLASS_LOCAL_POLL
     _discovery_info = {}
     DOMAIN = DOMAIN
@@ -155,8 +154,6 @@ class WfRacConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 options_input = {
                     CONF_HOST: user_input[CONF_HOST],
                     CONF_AVAILABILITY_CHECK: True,
-                    CONF_AVAILABILITY_RETRY_LIMIT: 3,
-                    CONF_STATUS_FAILURE_RETRY_LIMIT: DEFAULT_STATUS_FAILURE_RETRY_LIMIT,
                 }
                 data_input.pop(CONF_HOST)
 
@@ -300,13 +297,26 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
         errors = {}
 
         if user_input is not None:
+            for option in (
+                CONF_AVAILABILITY_RETRY_LIMIT,
+                CONF_STATUS_FAILURE_RETRY_LIMIT,
+            ):
+                value = user_input.get(option)
+                if value in (None, ""):
+                    user_input.pop(option, None)
+                    continue
+                try:
+                    user_input[option] = int(value)
+                except (TypeError, ValueError):
+                    errors[option] = "invalid_retry_limit"
+
             status_update_interval = user_input.get(CONF_STATUS_UPDATE_INTERVAL)
             if status_update_interval in (None, ""):
                 user_input.pop(CONF_STATUS_UPDATE_INTERVAL, None)
             else:
                 try:
                     status_update_interval = int(status_update_interval)
-                except ValueError:
+                except (TypeError, ValueError):
                     errors[CONF_STATUS_UPDATE_INTERVAL] = "invalid_status_update_interval"
                 else:
                     min_update_interval = int(MIN_TIME_BETWEEN_UPDATES.total_seconds())
@@ -318,15 +328,15 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
             if not errors:
                 return self.async_create_entry(title="", data=user_input)
 
-        status_update_interval_default = self.config_entry.options.get(  # type: ignore
-            CONF_STATUS_UPDATE_INTERVAL,
-            "",
-        )
-        if user_input is not None:
-            status_update_interval_default = user_input.get(
-                CONF_STATUS_UPDATE_INTERVAL,
-                status_update_interval_default,
+        def optional_numeric_field(name: str) -> vol.Optional:
+            """Build a numeric option that stays blank until explicitly configured."""
+            value = (
+                user_input.get(name)
+                if user_input is not None
+                else self.config_entry.options.get(name)  # type: ignore
             )
+            description = {"suggested_value": str(value)} if value not in (None, "") else None
+            return vol.Optional(name, description=description)
 
         return self.async_show_form(
             step_id="init",
@@ -340,21 +350,9 @@ class WfRacOptionsFlowHandler(config_entries.OptionsFlow):
                         CONF_AVAILABILITY_CHECK,
                         default=self.config_entry.options.get(CONF_AVAILABILITY_CHECK, True),  # type: ignore
                     ): bool,
-                    vol.Optional(
-                        CONF_AVAILABILITY_RETRY_LIMIT,
-                        default=self.config_entry.options.get(CONF_AVAILABILITY_RETRY_LIMIT, 3),  # type: ignore
-                    ): int,
-                    vol.Optional(
-                        CONF_STATUS_FAILURE_RETRY_LIMIT,
-                        default=self.config_entry.options.get(  # type: ignore
-                            CONF_STATUS_FAILURE_RETRY_LIMIT,
-                            DEFAULT_STATUS_FAILURE_RETRY_LIMIT,
-                        ),
-                    ): int,
-                    vol.Optional(
-                        CONF_STATUS_UPDATE_INTERVAL,
-                        default=str(status_update_interval_default),
-                    ): str,
+                    optional_numeric_field(CONF_AVAILABILITY_RETRY_LIMIT): str,
+                    optional_numeric_field(CONF_STATUS_FAILURE_RETRY_LIMIT): str,
+                    optional_numeric_field(CONF_STATUS_UPDATE_INTERVAL): str,
                     vol.Optional(
                         CONF_LOG_HTTP_CALLS,
                         default=self.config_entry.options.get(CONF_LOG_HTTP_CALLS, False),  # type: ignore

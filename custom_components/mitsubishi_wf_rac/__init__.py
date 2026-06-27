@@ -67,6 +67,17 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.config_entries.async_update_entry(
             entry, data=new_data, options=new_options, version=3
         )
+    if entry.version == 3:
+        new_options = entry.options.copy()
+        if (
+            new_options.get(CONF_STATUS_FAILURE_RETRY_LIMIT)
+            == DEFAULT_STATUS_FAILURE_RETRY_LIMIT
+        ):
+            new_options.pop(CONF_STATUS_FAILURE_RETRY_LIMIT)
+
+        hass.config_entries.async_update_entry(
+            entry, options=new_options, version=4
+        )
 
     return True
 

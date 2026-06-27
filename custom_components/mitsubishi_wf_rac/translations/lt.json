@@ -32,13 +32,26 @@
     }
   },
   "options": {
+    "error": {
+      "invalid_retry_limit": "Pakartotinių bandymų limitas turi būti sveikasis skaičius.",
+      "invalid_status_update_interval": "Būsenos atnaujinimo intervalas turi būti nurodytas sveikuoju sekundžių skaičiumi.",
+      "status_update_interval_too_low": "Būsenos atnaujinimo intervalas turi būti ilgesnis už numatytąjį intervalą."
+    },
     "step": {
       "init": {
         "description": "Žemiau pateikiamos parinktys, kurias galite keisti šiam oro kondicionieriui.",
         "data": {
           "host": "Host (IP) adresas",
           "availability_check": "Patikrinti prieinamumą",
-          "availability_retry_limit": "Pakartotinio bandymo limitas"
+          "availability_retry_limit": "Pakartotinio bandymo limitas",
+          "status_failure_retry_limit": "Būsenos klaidų pakartojimo limitas",
+          "status_update_interval": "Būsenos atnaujinimo intervalas (sekundėmis)",
+          "log_http_calls": "Registruoti HTTP užklausas"
+        },
+        "data_description": {
+          "status_failure_retry_limit": "Iš eilės nepavykusių būsenos užklausų skaičius, kurį ignoruoti prieš pažymint įrenginį kaip nepasiekiamą.",
+          "status_update_interval": "Sekundžių skaičius tarp būsenos atnaujinimų. Palikite tuščią, kad būtų naudojamas numatytasis intervalas; reikšmė turi būti didesnė už numatytąją.",
+          "log_http_calls": "Registruoti visas šio įrenginio užklausas ir atsakymus, įskaitant naudingosios apkrovos informaciją. Baigę trikčių diagnostiką išjunkite."
         },
         "title": "WF-RAC oro kondicionieriaus prisijungimo informacija"
       }

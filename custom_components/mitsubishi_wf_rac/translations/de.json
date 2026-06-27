@@ -32,6 +32,11 @@
     }
   },
   "options": {
+    "error": {
+      "invalid_retry_limit": "Das Wiederholungslimit muss eine ganze Zahl sein.",
+      "invalid_status_update_interval": "Das Statusaktualisierungsintervall muss eine ganze Anzahl von Sekunden sein.",
+      "status_update_interval_too_low": "Das Statusaktualisierungsintervall muss größer als das Standardintervall sein."
+    },
     "step": {
       "init": {
         "description": "Nachfolgend finden Sie die Optionen, die Sie für diese Klimaanlage ändern können.",
@@ -39,10 +44,14 @@
           "host": "Host (IP) Adresse",
           "availability_check": "Verfügbarkeit prüfen",
           "availability_retry_limit": "max. Anzahl Wiederholungen",
-          "status_failure_retry_limit": "Statusfehler-Wiederholungslimit"
+          "status_failure_retry_limit": "Statusfehler-Wiederholungslimit",
+          "status_update_interval": "Statusaktualisierungsintervall (Sekunden)",
+          "log_http_calls": "HTTP-Aufrufe protokollieren"
         },
         "data_description": {
-          "status_failure_retry_limit": "Anzahl aufeinanderfolgender fehlgeschlagener Statusabfragen, die ignoriert werden, bevor das Gerät als nicht verfügbar markiert wird."
+          "status_failure_retry_limit": "Anzahl aufeinanderfolgender fehlgeschlagener Statusabfragen, die ignoriert werden, bevor das Gerät als nicht verfügbar markiert wird.",
+          "status_update_interval": "Sekunden zwischen Statusaktualisierungen. Leer lassen, um das Standardintervall zu verwenden; der Wert muss größer als der Standardwert sein.",
+          "log_http_calls": "Protokolliert jede Anfrage und Antwort für dieses Gerät einschließlich der Nutzdaten. Nach der Fehlerbehebung wieder deaktivieren."
         },
         "title": "WF-RAC AC Verbindungs-Info"
       }

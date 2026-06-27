@@ -32,11 +32,26 @@
     }
   },
   "options": {
+    "error": {
+      "invalid_retry_limit": "再試行回数の上限は整数で指定してください。",
+      "invalid_status_update_interval": "ステータス更新間隔は秒単位の整数で指定してください。",
+      "status_update_interval_too_low": "ステータス更新間隔はデフォルトの更新間隔より長くする必要があります。"
+    },
     "step": {
       "init": {
         "description": "以下は、このエアコンの変更可能なオプションです。",
         "data": {
-          "host": "ホスト（IP）アドレス"
+          "host": "ホスト（IP）アドレス",
+          "availability_check": "可用性を確認",
+          "availability_retry_limit": "再試行回数の上限",
+          "status_failure_retry_limit": "ステータス取得失敗の許容回数",
+          "status_update_interval": "ステータス更新間隔（秒）",
+          "log_http_calls": "HTTP通信をログに記録"
+        },
+        "data_description": {
+          "status_failure_retry_limit": "デバイスを利用不可とするまで無視する、連続したステータス取得失敗の回数です。",
+          "status_update_interval": "ステータス更新の間隔（秒）です。デフォルト値を使用する場合は空欄にしてください。指定する値はデフォルト値より大きくする必要があります。",
+          "log_http_calls": "このデバイスへのすべてのリクエストとレスポンスを、ペイロードの詳細を含めてログに記録します。トラブルシューティング後は無効にしてください。"
         },
         "title": "WF-RACエアコン接続情報"
       }

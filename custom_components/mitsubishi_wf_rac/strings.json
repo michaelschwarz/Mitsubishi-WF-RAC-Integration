@@ -33,6 +33,7 @@
   },
   "options": {
     "error": {
+      "invalid_retry_limit": "Retry limit must be a whole number.",
       "invalid_status_update_interval": "Status update interval must be a whole number of seconds.",
       "status_update_interval_too_low": "Status update interval must be higher than the default update interval."
     },

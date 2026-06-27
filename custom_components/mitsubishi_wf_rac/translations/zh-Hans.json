@@ -33,6 +33,11 @@
     }
   },
   "options": {
+    "error": {
+      "invalid_retry_limit": "重试次数上限必须为整数。",
+      "invalid_status_update_interval": "状态更新间隔必须为整数秒。",
+      "status_update_interval_too_low": "状态更新间隔必须大于默认更新间隔。"
+    },
     "step": {
       "init": {
         "description": "以下是你可以为此空调更改的选项。",
@@ -40,7 +45,15 @@
           "host": "主机（IP）地址",
           "availability_check": "检查可用性",
           "availability_retry_limit": "重试次数上限",
+          "status_failure_retry_limit": "状态请求失败重试上限",
+          "status_update_interval": "状态更新间隔（秒）",
+          "log_http_calls": "记录 HTTP 调用",
           "create_swing_mode_select": "是否创建额外的摆风模式选择器。"
+        },
+        "data_description": {
+          "status_failure_retry_limit": "将设备标记为不可用之前可忽略的连续状态请求失败次数。",
+          "status_update_interval": "状态更新之间的秒数。留空则使用默认间隔；该值必须大于默认值。",
+          "log_http_calls": "记录此设备的每个请求和响应，包括负载详情。故障排除后请将其关闭。"
         },
         "title": "WF-RAC 空调连接信息"
       }
